@@ -7,10 +7,11 @@ import com.aiu.order.model.vo.ExcelImport;
 import com.aiu.order.service.autoself.AutoSelfParameterService;
 import com.aiu.order.service.yxuser.YxUserService;
 import com.aiu.order.service.z2025.Z2025UserService;
+import com.aiu.order.utils.AgeUtils;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import org.apache.commons.collections.map.LinkedMap;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -25,7 +26,6 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -105,9 +105,22 @@ public class OrderController {
             }
             List<AutoSelfParameterEntity> auto = autoSelfParameterService.list();
             List<String> userAccountList = importList.stream().map(ExcelImport::getUserAccount).collect(Collectors.toList());
-            List<YxUserEntity> userEntityList = yxUserService.list(new QueryWrapper<YxUserEntity>().in("account", userAccountList));
+            List<YxUserEntity> userEntityList = yxUserService.list(new QueryWrapper<YxUserEntity>().in("phone", userAccountList));
             List<String> aiuIdList = userEntityList.stream().map(YxUserEntity::getAiuskinid).collect(Collectors.toList());
             List<Z2025User> z2025Users = z2025UserService.list(new QueryWrapper<Z2025User>().in("aiuskinid", aiuIdList));
+            List<String> collect = z2025Users.stream().map(x -> x.getAiuskinid()).collect(Collectors.toList());
+            List<YxUserEntity> collect1 = userEntityList.stream().filter(x -> collect.contains(x.getAiuskinid())).collect(Collectors.toList());
+            StringBuilder sb = new StringBuilder();
+            z2025Users = z2025Users.stream().filter(x -> x.getI1Elasticity() == null || x.getI1Oil() == null || x.getI1Water() == null).collect(Collectors.toList());
+//            collect2.forEach(x->{
+//                String aiuskinid = x.getAiuskinid();
+//                Optional<YxUserEntity> first = collect1.stream().filter(z -> z.getAiuskinid().equals(aiuskinid)).findFirst();
+//                first.ifPresent(a->{
+//                    sb.append(a.getRealName()).append("    ").append(a.getPhone()).append("\n");
+//                });
+//
+//            });
+//            String s1 = sb.toString();
             for (String s : userAccountList) {
                 List<String> skinOiliness = new ArrayList<>();
                 List<String> skinSensitivity = new ArrayList<>();
@@ -119,13 +132,15 @@ public class OrderController {
                 List<String> i1Oil = new ArrayList<>();
                 List<String> i1Elasticity = new ArrayList<>();
                 Optional<YxUserEntity> first = userEntityList.stream().filter(x -> x.getAccount().equals(s)).findFirst();
+                List<Z2025User> finalZ2025Users = z2025Users;
                 first.ifPresent(x -> {
                     String aiuskinid = x.getAiuskinid();
-                    Optional<Z2025User> z2025 = z2025Users.stream().filter(z -> z.getAiuskinid().equals(aiuskinid)).findFirst();
+                    Optional<Z2025User> z2025 = finalZ2025Users.stream().filter(z -> z.getAiuskinid().equals(aiuskinid)).findFirst();
                     z2025.ifPresent(z -> {
                         /*
                           油量
                          */
+//                        if (z.getSkinoiliness()==null)
                         Optional<AutoSelfParameterEntity> oil = auto.stream().filter(b -> b.getId().contains("50")
                                 && z.getSkinoiliness().contains(b.getLow())).findFirst();
                         oil.ifPresent(a -> {
@@ -157,9 +172,11 @@ public class OrderController {
                           年龄
                          */
                         try {
+                            Date birthday = z.getBirthday();
+                            int age = AgeUtils.getAge(birthday);
                             Optional<AutoSelfParameterEntity> agerangeObj = auto.stream().filter(d -> d.getId().contains("20")
-                                    && Integer.parseInt(z.getAgerange()) > Integer.parseInt(d.getLow())
-                                    && Integer.parseInt(z.getAgerange()) < Integer.parseInt(d.getHigh())).findFirst();
+                                    && age >= Integer.parseInt(d.getLow())
+                                    && age <= Integer.parseInt(d.getHigh())).findFirst();
 
                             agerangeObj.ifPresent(a -> {
                                 agerange.add(a.getNo1());
@@ -179,8 +196,8 @@ public class OrderController {
                           湿度
                          */
                         Optional<AutoSelfParameterEntity> averageHumidityObj = auto.stream().filter(e -> e.getId().contains("30")
-                                && z.getAveragehumidity() > Integer.parseInt(e.getLow())
-                                && z.getAveragehumidity() < Integer.parseInt(e.getHigh())).findFirst();
+                                && z.getAveragehumidity() >= Integer.parseInt(e.getLow())
+                                && z.getAveragehumidity() <= Integer.parseInt(e.getHigh())).findFirst();
 
                         averageHumidityObj.ifPresent(a -> {
                             averageHumidity.add(a.getNo1());
@@ -238,8 +255,8 @@ public class OrderController {
                          */
                         try {
                             Optional<AutoSelfParameterEntity> i1WaterObj = auto.stream().filter(h -> h.getId().contains("80")
-                                    && z.getI1Water() > Integer.parseInt(h.getLow())
-                                    && z.getI1Water() < Integer.parseInt(h.getHigh())).findFirst();
+                                    && z.getI1Water() >= Integer.parseInt(h.getLow())
+                                    && z.getI1Water() <= Integer.parseInt(h.getHigh())).findFirst();
                             i1WaterObj.ifPresent(a -> {
                                 i1Water.add(a.getNo1());
                                 i1Water.add(a.getNo2());
@@ -259,8 +276,8 @@ public class OrderController {
                          */
                         try {
                             Optional<AutoSelfParameterEntity> i1OilObj = auto.stream().filter(i -> i.getId().contains("90")
-                                    && z.getI1Oil() > Integer.parseInt(i.getLow())
-                                    && z.getI1Oil() < Integer.parseInt(i.getHigh())).findFirst();
+                                    && z.getI1Oil() >= Integer.parseInt(i.getLow())
+                                    && z.getI1Oil() <= Integer.parseInt(i.getHigh())).findFirst();
                             i1OilObj.ifPresent(a -> {
                                 i1Oil.add(a.getNo1());
                                 i1Oil.add(a.getNo2());
@@ -280,8 +297,8 @@ public class OrderController {
                          */
                         try {
                             Optional<AutoSelfParameterEntity> i1ElasticityObj = auto.stream().filter(j -> j.getId().contains("A0")
-                                    && z.getI1Elasticity() > Integer.parseInt(j.getLow())
-                                    && z.getI1Elasticity() < Integer.parseInt(j.getHigh())).findFirst();
+                                    && z.getI1Elasticity() >= Integer.parseInt(j.getLow())
+                                    && z.getI1Elasticity() <= Integer.parseInt(j.getHigh())).findFirst();
                             i1ElasticityObj.ifPresent(a -> {
                                 i1Elasticity.add(a.getNo1());
                                 i1Elasticity.add(a.getNo2());
@@ -322,7 +339,6 @@ public class OrderController {
                 Double n7 = execute(no7);
 
 
-
             }
 
         } catch (IOException e) {
@@ -341,7 +357,7 @@ public class OrderController {
                 count++;
             }
         }
-        return (num/count);
+        return (num / count);
 
     }
 
