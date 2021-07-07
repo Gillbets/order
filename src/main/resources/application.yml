@@ -19,3 +19,8 @@ spring:
           username: aiuskinshop
           password: Aiguangjie02
           driver-class-name: com.mysql.jdbc.Driver
+        local:
+          url: jdbc:mysql://localhost:3306/aiuskinlocal
+          username: root
+          password: root
+          driver-class-name: com.mysql.jdbc.Driver

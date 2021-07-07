@@ -1,17 +1,18 @@
 package com.aiu.order.controller;
 
+import com.aiu.order.model.entity.AiuProduce;
 import com.aiu.order.model.entity.AutoSelfParameterEntity;
 import com.aiu.order.model.entity.YxUserEntity;
 import com.aiu.order.model.entity.Z2025User;
 import com.aiu.order.model.vo.ExcelImport;
 import com.aiu.order.service.autoself.AutoSelfParameterService;
+import com.aiu.order.service.produce.ProduceService;
 import com.aiu.order.service.yxuser.YxUserService;
 import com.aiu.order.service.z2025.Z2025UserService;
 import com.aiu.order.utils.AgeUtils;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -40,6 +41,8 @@ public class OrderController {
     Z2025UserService z2025UserService;
     @Resource
     YxUserService yxUserService;
+    @Resource
+    ProduceService produceService;
 
     private static String getKey(HashMap<String, Integer> map, Integer value) {
         String key = "";
@@ -121,6 +124,7 @@ public class OrderController {
 //
 //            });
 //            String s1 = sb.toString();
+            List<AiuProduce> aiuProduces = new ArrayList<>();
             for (String s : userAccountList) {
                 List<String> skinOiliness = new ArrayList<>();
                 List<String> skinSensitivity = new ArrayList<>();
@@ -133,41 +137,63 @@ public class OrderController {
                 List<String> i1Elasticity = new ArrayList<>();
                 Optional<YxUserEntity> first = userEntityList.stream().filter(x -> x.getAccount().equals(s)).findFirst();
                 List<Z2025User> finalZ2025Users = z2025Users;
+                AiuProduce produce = new AiuProduce();
                 first.ifPresent(x -> {
                     String aiuskinid = x.getAiuskinid();
                     Optional<Z2025User> z2025 = finalZ2025Users.stream().filter(z -> z.getAiuskinid().equals(aiuskinid)).findFirst();
                     z2025.ifPresent(z -> {
+                        produce.setAccount(x.getAccount());
+                        produce.setAiuskinid(x.getAiuskinid());
+                        produce.setHope(z.getHope());
+                        produce.setRealName(z.getRealname());
+                        Optional<ExcelImport> excelImport = importList.stream().filter(a -> s.equals(a.getUserAccount())).findFirst();
+                        excelImport.ifPresent(m -> {
+                            produce.setPostaddress(m.getReceiveAddress());
+                            produce.setPostname(m.getReceiveName());
+                            produce.setPostphone(m.getReceiveMobile());
+                            produce.setProductionstatus(0);
+                        });
                         /*
                           油量
                          */
 //                        if (z.getSkinoiliness()==null)
-                        Optional<AutoSelfParameterEntity> oil = auto.stream().filter(b -> b.getId().contains("50")
-                                && z.getSkinoiliness().contains(b.getLow())).findFirst();
-                        oil.ifPresent(a -> {
-                            skinOiliness.add(a.getNo1());
-                            skinOiliness.add(a.getNo2());
-                            skinOiliness.add(a.getNo3());
-                            skinOiliness.add(a.getNo4());
-                            skinOiliness.add(a.getNo5());
-                            skinOiliness.add(a.getNo6());
-                            skinOiliness.add(a.getNo7());
+                        try {
+                            Optional<AutoSelfParameterEntity> oil = auto.stream().filter(b -> b.getId().contains("50")
+                                    && z.getSkinoiliness().contains(b.getLow())).findFirst();
+                            oil.ifPresent(a -> {
+                                skinOiliness.add(a.getNo1());
+                                skinOiliness.add(a.getNo2());
+                                skinOiliness.add(a.getNo3());
+                                skinOiliness.add(a.getNo4());
+                                skinOiliness.add(a.getNo5());
+                                skinOiliness.add(a.getNo6());
+                                skinOiliness.add(a.getNo7());
 
-                        });
+                            });
+                        } catch (Exception ignore) {
+
+                        }
+
                         /*
                           敏感
                          */
-                        Optional<AutoSelfParameterEntity> sensitivity = auto.stream().filter(c -> c.getId().contains("60")
-                                && z.getSkinsensitivity().contains(c.getLow())).findFirst();
-                        sensitivity.ifPresent(a -> {
-                            skinSensitivity.add(a.getNo1());
-                            skinSensitivity.add(a.getNo2());
-                            skinSensitivity.add(a.getNo3());
-                            skinSensitivity.add(a.getNo4());
-                            skinSensitivity.add(a.getNo5());
-                            skinSensitivity.add(a.getNo6());
-                            skinSensitivity.add(a.getNo7());
+                        try {
+                            Optional<AutoSelfParameterEntity> sensitivity = auto.stream().filter(c -> c.getId().contains("60")
+                                    && z.getSkinsensitivity().contains(c.getLow())).findFirst();
+                            sensitivity.ifPresent(a -> {
+                                skinSensitivity.add(a.getNo1());
+                                skinSensitivity.add(a.getNo2());
+                                skinSensitivity.add(a.getNo3());
+                                skinSensitivity.add(a.getNo4());
+                                skinSensitivity.add(a.getNo5());
+                                skinSensitivity.add(a.getNo6());
+                                skinSensitivity.add(a.getNo7());
 
-                        });
+                            });
+                        } catch (Exception ignore) {
+
+                        }
+
                         /*
                           年龄
                          */
@@ -195,61 +221,77 @@ public class OrderController {
                         /*
                           湿度
                          */
-                        Optional<AutoSelfParameterEntity> averageHumidityObj = auto.stream().filter(e -> e.getId().contains("30")
-                                && z.getAveragehumidity() >= Integer.parseInt(e.getLow())
-                                && z.getAveragehumidity() <= Integer.parseInt(e.getHigh())).findFirst();
+                        try {
+                            Optional<AutoSelfParameterEntity> averageHumidityObj = auto.stream().filter(e -> e.getId().contains("30")
+                                    && z.getAveragehumidity() >= Integer.parseInt(e.getLow())
+                                    && z.getAveragehumidity() <= Integer.parseInt(e.getHigh())).findFirst();
 
-                        averageHumidityObj.ifPresent(a -> {
-                            averageHumidity.add(a.getNo1());
-                            averageHumidity.add(a.getNo2());
-                            averageHumidity.add(a.getNo3());
-                            averageHumidity.add(a.getNo4());
-                            averageHumidity.add(a.getNo5());
-                            averageHumidity.add(a.getNo6());
-                            averageHumidity.add(a.getNo7());
+                            averageHumidityObj.ifPresent(a -> {
+                                averageHumidity.add(a.getNo1());
+                                averageHumidity.add(a.getNo2());
+                                averageHumidity.add(a.getNo3());
+                                averageHumidity.add(a.getNo4());
+                                averageHumidity.add(a.getNo5());
+                                averageHumidity.add(a.getNo6());
+                                averageHumidity.add(a.getNo7());
 
-                        });
+                            });
+                        } catch (Exception ignore) {
+
+                        }
+
                         /*
                           性别
                          */
-                        Optional<AutoSelfParameterEntity> sexObj = auto.stream().filter(f -> f.getId().contains("40")
-                                && z.getSex().equals(f.getLow())).findFirst();
+                        try {
+                            Optional<AutoSelfParameterEntity> sexObj = auto.stream().filter(f -> f.getId().contains("40")
+                                    && z.getSex().equals(f.getLow())).findFirst();
 
-                        sexObj.ifPresent(a -> {
-                            sex.add(a.getNo1());
-                            sex.add(a.getNo2());
-                            sex.add(a.getNo3());
-                            sex.add(a.getNo4());
-                            sex.add(a.getNo5());
-                            sex.add(a.getNo6());
-                            sex.add(a.getNo7());
+                            sexObj.ifPresent(a -> {
+                                sex.add(a.getNo1());
+                                sex.add(a.getNo2());
+                                sex.add(a.getNo3());
+                                sex.add(a.getNo4());
+                                sex.add(a.getNo5());
+                                sex.add(a.getNo6());
+                                sex.add(a.getNo7());
 
-                        });
+                            });
+                        } catch (Exception ignore) {
+
+                        }
+
                         /*
                           饮水量
                          */
-                        String drinkId = "701";
-                        if (z.getWaterintake().contains("非常少")) {
-                            drinkId = "701";
-                        } else if (z.getWaterintake().contains("较少")) {
-                            drinkId = "702";
-                        } else if (z.getWaterintake().contains("适中")) {
-                            drinkId = "703";
-                        } else if (z.getWaterintake().contains("较多")) {
-                            drinkId = "704";
-                        }
-                        String finalDrinkId = drinkId;
-                        Optional<AutoSelfParameterEntity> drinkObj = auto.stream().filter(g -> g.getId().equals(finalDrinkId)).findFirst();
-                        drinkObj.ifPresent(a -> {
-                            drink.add(a.getNo1());
-                            drink.add(a.getNo2());
-                            drink.add(a.getNo3());
-                            drink.add(a.getNo4());
-                            drink.add(a.getNo5());
-                            drink.add(a.getNo6());
-                            drink.add(a.getNo7());
+                        try {
 
-                        });
+
+                            String drinkId = "701";
+                            if (z.getWaterintake().contains("非常少")) {
+                                drinkId = "701";
+                            } else if (z.getWaterintake().contains("较少")) {
+                                drinkId = "702";
+                            } else if (z.getWaterintake().contains("适中")) {
+                                drinkId = "703";
+                            } else if (z.getWaterintake().contains("较多")) {
+                                drinkId = "704";
+                            }
+                            String finalDrinkId = drinkId;
+                            Optional<AutoSelfParameterEntity> drinkObj = auto.stream().filter(g -> g.getId().equals(finalDrinkId)).findFirst();
+                            drinkObj.ifPresent(a -> {
+                                drink.add(a.getNo1());
+                                drink.add(a.getNo2());
+                                drink.add(a.getNo3());
+                                drink.add(a.getNo4());
+                                drink.add(a.getNo5());
+                                drink.add(a.getNo6());
+                                drink.add(a.getNo7());
+
+                            });
+                        } catch (Exception ignore) {
+
+                        }
                         /*
                         水分测试
                          */
@@ -323,13 +365,13 @@ public class OrderController {
                 List<String> no5 = new ArrayList<>();
                 List<String> no6 = new ArrayList<>();
                 List<String> no7 = new ArrayList<>();
-                no1 = add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 0, no1);
-                no2 = add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 1, no2);
-                no3 = add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 2, no3);
-                no4 = add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 3, no4);
-                no5 = add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 4, no5);
-                no6 = add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 5, no6);
-                no7 = add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 6, no7);
+                add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 0, no1);
+                add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 1, no2);
+                add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 2, no3);
+                add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 3, no4);
+                add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 4, no5);
+                add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 5, no6);
+                add(skinOiliness, skinSensitivity, agerange, averageHumidity, sex, drink, i1Water, i1Oil, i1Elasticity, 6, no7);
                 Double n1 = execute(no1);
                 Double n2 = execute(no2);
                 Double n3 = execute(no3);
@@ -337,10 +379,25 @@ public class OrderController {
                 Double n5 = execute(no5);
                 Double n6 = execute(no6);
                 Double n7 = execute(no7);
+                Double v = n1 + n2 + n3 + n4 + n5 + n6 + n7;
+                Double v1 = n1 / v * 100;
+                Double v2 = n2 / v * 100;
+                Double v3 = n3 / v * 100;
+                Double v4 = n4 / v * 100;
+                Double v5 = n5 / v * 100;
+                Double v6 = n6 / v * 100;
+                Double v7 = n7 / v * 100;
 
-
+                produce.setNo1(v1.intValue());
+                produce.setNo2(v2.intValue());
+                produce.setNo3(v3.intValue());
+                produce.setNo4(v4.intValue());
+                produce.setNo5(v5.intValue());
+                produce.setNo6(v6.intValue());
+                produce.setNo7(v7.intValue());
+                aiuProduces.add(produce);
             }
-
+            produceService.saveBatch(aiuProduces);
         } catch (IOException e) {
             e.printStackTrace();
         }
